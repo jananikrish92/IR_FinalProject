@@ -58,10 +58,14 @@ public class LuceneQLSearcher extends AbstractQLSearcher {
 					List<SearchResult> ser=searcher.search(field_search,terms,mu,top);
 
 					Map<String, Double> ql_map = searcher.estimateQueryModelRM1(field_search, terms, mu, mu2, k, n);
+
 					Features f=new Features();
 
 					//f.feature1(searcher.index,ql_map,ser);
-					f.feature3(searcher.index,ql_map,ser,terms);
+					//f.feature3(searcher.index,ql_map,ser,terms);
+					//f.feature5(searcher.index,ql_map,ser,terms);
+					//f.feature7(searcher.index,ql_map,terms,ser);
+					f.feature9(searcher.index,ser,terms,ql_map);
 					List<SearchResult> results = searcher.search(field_search, ql_map, 1000, top);
 					SearchResult.dumpDocno(searcher.index, field_docno, results);
 
