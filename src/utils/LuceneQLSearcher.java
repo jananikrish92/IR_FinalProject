@@ -49,7 +49,7 @@ public class LuceneQLSearcher extends AbstractQLSearcher {
 				double[] p10 = new double[queries.size()];
 				double[] ap = new double[queries.size()];
 				int ix = 0;
-				String qid="51";
+				String qid="187";
 				List<String> terms = null;
 				//for (String qid : queries.keySet()) {
 
@@ -62,10 +62,14 @@ public class LuceneQLSearcher extends AbstractQLSearcher {
 					Features f=new Features();
 
 					//f.feature1(searcher.index,ql_map,ser);
-					//f.feature3(searcher.index,ql_map,ser,terms);
+                     // f.feature2(searcher.index,ql_map,searcher);
+					//f.feature3(searcher.index,ql_map,ser,terms,20);
+                    //    f.feature4(ql_map,terms,searcher);
 					//f.feature5(searcher.index,ql_map,ser,terms);
-					//f.feature7(searcher.index,ql_map,terms,ser);
-					f.feature9(searcher.index,ser,terms,ql_map);
+					//f.feature6(ql_map,terms,searcher);
+                    //f.feature7(searcher.index,ql_map,terms,ser);
+                        f.feature8(ql_map,terms,searcher);
+					//f.feature9(searcher.index,ser,terms,ql_map);
 					List<SearchResult> results = searcher.search(field_search, ql_map, 1000, top);
 					SearchResult.dumpDocno(searcher.index, field_docno, results);
 
