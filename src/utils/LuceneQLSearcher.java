@@ -37,7 +37,7 @@ public class LuceneQLSearcher extends AbstractQLSearcher {
 
 			double mu = 1500;
 			int k = 10;
-			int n = 0;
+			int n = 80;
 
 			int top = 1000;
 
@@ -49,16 +49,14 @@ public class LuceneQLSearcher extends AbstractQLSearcher {
 				double[] p10 = new double[queries.size()];
 				double[] ap = new double[queries.size()];
 				int ix = 0;
-				String qid="187";
+				String qid="51";
 				List<String> terms = null;
 				//for (String qid : queries.keySet()) {
 
 					String query = queries.get(qid);
 					terms = LuceneUtils.tokenize(query, analyzer);
 					List<SearchResult> ser=searcher.search(field_search,terms,mu,top);
-
 					Map<String, Double> ql_map = searcher.estimateQueryModelRM1(field_search, terms, mu, mu2, k, n);
-
 					Features f=new Features();
 
 					//f.feature1(searcher.index,ql_map,ser);
@@ -68,9 +66,13 @@ public class LuceneQLSearcher extends AbstractQLSearcher {
 					//f.feature5(searcher.index,ql_map,ser,terms);
 					//f.feature6(ql_map,terms,searcher);
                     //f.feature7(searcher.index,ql_map,terms,ser);
-                        f.feature8(ql_map,terms,searcher);
+               //         f.feature8(ql_map,terms,searcher);
 					//f.feature9(searcher.index,ser,terms,ql_map);
-					List<SearchResult> results = searcher.search(field_search, ql_map, 1000, top);
+
+                    List<String> expansionTermList=new ArrayList<>(ql_map.keySet());
+                    List<SearchResult> results = searcher.search(field_search, ql_map, 1000, top);
+                    MixtureModel.estimateSMM("content",terms,0.2,20,80);
+
 					SearchResult.dumpDocno(searcher.index, field_docno, results);
 
 					p10[ix] = EvalUtils.precision(results, qrels.get(qid), 30);
@@ -83,71 +85,86 @@ public class LuceneQLSearcher extends AbstractQLSearcher {
 					);
 
 					ix++;
-				//}
-				System.out.printf(
+
+                    /*
+                     Testing if the expanded terms are good by adding it to the original model
+
+                     */
+                         SearchResult.dumpDocno(searcher.index, field_docno, ser);
+                        double p30=0,apValue=0;
+                          p30= EvalUtils.precision(ser, qrels.get(qid), 30);
+                    apValue= EvalUtils.avgPrec(ser, qrels.get(qid), top);
+                         System.out.printf(
+                    "%-10s%8.3f%8.3f\n",
+                    qid,
+                    p30,
+                    apValue
+            );
+
+                    Map<String,Integer> GoodBadTermMap=new TreeMap<>();
+                    for(String expTerm:ql_map.keySet()) {
+
+                        List<SearchResult> SerExpTerm=searcher.search("content",terms,mu,top);
+                        List<SearchResult> SerExpTerm1=searcher.search("content",terms,mu,top);
+                        for (int i = 0; i < SerExpTerm.size(); i++) {
+                            int docid = SerExpTerm.get(i).getDocid();
+                            double scoreExpterm= searcher.dirichletLogProbability(expTerm,docid,mu,0.01);
+                            double scoreExpTerm1=searcher.dirichletLogProbability(expTerm,docid,mu,-0.01);
+                           // if(scoreExpterm==0)
+                             //   continue;
+                            double QLScore=SerExpTerm.get(i).getScore();
+                            double QLScore1=SerExpTerm1.get(i).getScore();
+                            System.out.println(scoreExpterm+" "+scoreExpTerm1);
+                            SerExpTerm.get(i).setScore(QLScore+scoreExpterm);
+                            SerExpTerm1.get(i).setScore(QLScore1+scoreExpTerm1);
+                        }
+                        Collections.sort( SerExpTerm, ( o1, o2 ) -> o2.getScore().compareTo( o1.getScore() ) );
+                        Collections.sort(SerExpTerm1,((o1, o2) -> o2.getScore().compareTo(o1.getScore())));
+                   //     System.out.println(SerExpTerm.get(0).getScore()+" "+SerExpTerm1.get(0).getScore()+" "+ser.get(0).getScore());
+                         double p30_Expanded=0,apValue_Expanded=0;
+                       p30_Expanded= EvalUtils.precision(SerExpTerm, qrels.get(qid), 30);
+                        apValue_Expanded= EvalUtils.avgPrec(SerExpTerm, qrels.get(qid), top);
+                        System.out.printf(
+                                "%-10s%8.3f%8.3f\n",
+                                qid,
+                                p30_Expanded,
+                                apValue_Expanded
+                        );
+                        double p30_Expanded1=0,apValue_Expanded1=0;
+                        p30_Expanded1= EvalUtils.precision(SerExpTerm1, qrels.get(qid), 30);
+                        apValue_Expanded1= EvalUtils.avgPrec(SerExpTerm1, qrels.get(qid), top);
+                        System.out.printf(
+                                "%-10s%8.3f%8.3f\n",
+                                qid,
+                                p30_Expanded1,
+                                apValue_Expanded1
+                        );
+                        if((apValue_Expanded>apValue) && (apValue_Expanded1<apValue))
+                        {
+                            GoodBadTermMap.put(expTerm,+1);
+                        }
+                        else if((apValue_Expanded1==apValue)|| (apValue_Expanded==apValue))
+                        {
+                            GoodBadTermMap.put(expTerm,0);
+                        }
+                        else
+                            GoodBadTermMap.put(expTerm,-1);
+                    }
+                    for(Map.Entry<String,Integer> t:GoodBadTermMap.entrySet())
+                    {
+                        System.out.println("expansionterm: "+t.getKey()+" Goodness :"+t.getValue());
+                    }
+            //}
+				/*System.out.printf(
 						"%-10s%-25s%10.3f%10.3f\n",
 						"QL",
 						"QL",
 						StatUtils.mean(p10),
 						StatUtils.mean(ap)
-				);
+				);*/
 			//}
 
-/*			System.out.println("RERANKING:");
-		for(int m=500;m<=5000;m=m+500) {
-			List<String> terms = null;
-			n = 0;
-			double[] p10 = new double[queries.size()];
-			double[] ap = new double[queries.size()];
-			int ix = 0;
-			top = 1000;
-			System.out.println("for m:"+m);
-			Map<String, Map<String, Double>> qid_ql_map = new TreeMap<>();
-			for (String qid : queries.keySet()) {
-				//List<String> terms=null;
-				String query = queries.get(qid);
-				terms = LuceneUtils.tokenize(query, analyzer);
-				Map<String, Double> ql_map = searcher.estimateQueryModelRM1(field_search, terms, mu, mu2, k, n);
-				qid_ql_map.put(qid, ql_map);
-			}
-			for (String qid : queries.keySet()) {
-
-				String query = queries.get(qid);
-				terms = LuceneUtils.tokenize(query, analyzer);
-				List<SearchResult> res_QL = searcher.search(field_search, terms, mu, m);
-				SearchResult.dumpDocno(searcher.index, field_docno, res_QL);
-				Map<String, Double> ql_map = qid_ql_map.get(qid);
-
-				//System.out.println(ql_map.get("crime"));
-				//System.out.println(ql_map.get("organized"));
-
-				List<SearchResult> kld_result = searcher.rerank(res_QL, mu, ql_map, terms);
-				//SearchResult.dumpDocno(searcher.index, field_docno, kld_result);
-
-				p10[ix] = EvalUtils.precision(kld_result, qrels.get(qid), 10);
-				ap[ix] = EvalUtils.avgPrec(kld_result, qrels.get(qid), top);
-
-				System.out.printf(
-						"%-10s%8.3f%8.3f\n",
-						qid,
-						p10[ix],
-						ap[ix]
-				);
-				ix++;
-
-			}
-
-			System.out.printf(
-					"%-10s%-25s%10.3f%10.3f\n",
-					"QL",
-					"QL",
-					StatUtils.mean(p10),
-					StatUtils.mean(ap)
-			);
-		}
-
-
-			System.out.println("---------RM3-----------");
+		/*	System.out.println("---------RM3-----------");
 			float lamda=0.5;
 			mu=1000;
 			mu2=0;
@@ -162,9 +179,9 @@ public class LuceneQLSearcher extends AbstractQLSearcher {
 				Map<String, Double> ql_map = searcher.estimateQueryModelRM1(field_search, terms, mu, mu2, k, n);
 				qid_ql_map.put(qid,ql_map);
 			}
-		//	for(int count=0;count<11;count++) {
-		//		lamda=count/10.0f;
-		//		System.out.println("lambda"+lamda);
+			for(int count=0;count<11;count++) {
+				lamda=count/10.0f;
+				System.out.println("lambda"+lamda);
 				double prob_mle=0;
 
 				double[] p10 = new double[queries.size()];
@@ -213,71 +230,27 @@ public class LuceneQLSearcher extends AbstractQLSearcher {
 			e.printStackTrace();
 		}
 	}
-	public List<SearchResult> rerank(List<SearchResult> res_QL, double mu, Map<String,Double> rerankTerms, List<String> qterms1) throws IOException
-	{
-		Set<String> qterms=rerankTerms.keySet();
+    public double dirichletLogProbability(String term,Integer docid,double mu,double weight) throws IOException {
+        double logProbExpansionGivenFB=0;
+        TermsEnum ter=index.getTermVector(docid,"content").iterator();
+        BytesRef br;
+        double freq=0;
+        while((br=ter.next())!=null){
+        String terms=br.utf8ToString();
+            if(terms.equals(term))
+                freq=ter.totalTermFreq();
+            break;
+        }
+        if(freq<3)
+            return 0;
+        long docLen= getDocLengthReader("content").getLength(docid);
+        long corpusTF = index.totalTermFreq( new Term("content", term ) );
+        long corpusLength = index.getSumTotalTermFreq( "content" );
+        double pwc = 1.0 * corpusTF / corpusLength;
+        logProbExpansionGivenFB=weight*Math.log((freq+mu*pwc)/(docLen+mu));
 
-		Map<SearchResult, Double> resultUsingKLD = new HashMap<SearchResult, Double>();
-
-		double corpusLength = this.index.getSumTotalTermFreq("content");
-
-		for(int i=0;i<res_QL.size();i++)
-		{
-			int docid=res_QL.get(i).getDocid();
-
-			String docNo=res_QL.get(i).docno;
-
-			TermsEnum ter=this.index.getTermVector(docid,"content").iterator();
-			long docLen = getDocLengthReader("content").getLength(docid);
-			Map<String, Double> wordFreq = new TreeMap<String, Double>();
-
-			BytesRef br;
-			// form word frquency map
-			while ((br = ter.next()) != null) {
-				if (!stopwords.contains(br.utf8ToString())) {
-					String term = br.utf8ToString();
-					double freq = ter.totalTermFreq();
-					//             docLen += freq;
-					if (wordFreq.containsKey(term)) {
-						wordFreq.put(term, wordFreq.get(term) + freq);
-					} else {
-						wordFreq.put(term, freq);
-					}
-				}
-			}
-
-			double score=0;
-			for(String term : qterms)
-			{
-				double prob_term_given_query=rerankTerms.get(term);
-
-				double ctd=0;
-
-				if(wordFreq.containsKey(term))
-				{
-					ctd = wordFreq.get(term);
-				}
-
-				double corpusTF = index.totalTermFreq(new Term("content", term));
-
-				double probTermGivenDocument = (ctd + (mu * (corpusTF / corpusLength))) / (docLen + mu);
-				score += (prob_term_given_query * Math.log(probTermGivenDocument));
-			}
-
-			// System.out.println("Document no"+docNo+" Score "+score);
-			resultUsingKLD.put(new SearchResult(docid, docNo, score), score);
-		}
-
-		Map<SearchResult, Double> resultWithScore = sortByValue(resultUsingKLD);
-
-		List<SearchResult> rerankedDocumentList = new ArrayList<SearchResult>();
-
-		for (Map.Entry<SearchResult, Double> entry : resultWithScore.entrySet()) {
-			rerankedDocumentList.add(entry.getKey());
-		}
-
-		return rerankedDocumentList;
-	}
+        return logProbExpansionGivenFB;
+    }
 	protected File dirBase;
 	protected Directory dirLucene;
 	protected IndexReader index;

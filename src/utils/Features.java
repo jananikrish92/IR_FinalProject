@@ -383,7 +383,7 @@
             }
         return feature5Map;
         }
-        public Map<String,Double> feature6(Map<String, Double> ql_map, List<String> terms, LuceneQLSearcher searcher) throws IOException {
+       /* public Map<String,Double> feature6(Map<String, Double> ql_map, List<String> terms, LuceneQLSearcher searcher) throws IOException {
             double tot_freq = CorpusLength(searcher.index, searcher);
             Map<String,Double> feature6Map=new HashMap<>();
             Map<Pair<String,String>,Set<Integer>> pairSetMap=new HashMap<>();
@@ -467,7 +467,11 @@
                 feature6Map.put(ExpTerms,score);
             }
             return feature6Map;
-        }
+        }*/
+       public void feature6Test(Map<String,Double> ql_map,IndexReader index,int numfb,List<String> qterms)
+       {
+
+       }
         public Map<String,Double> feature7(IndexReader index, Map<String, Double> ql_map, List<String> terms,List<SearchResult> ser) throws IOException {
                  List<Integer> FeedbackDocList = new ArrayList<>();
             int numfb=20;
