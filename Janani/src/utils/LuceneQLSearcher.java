@@ -63,7 +63,7 @@
 
                         Features f=new Features();
                         //System.out.println(ql_map.size());
-                      //  Map<String,Double> feature1Map=f.feature1(searcher.index,CorrectedExpandedTerms,ser,20);
+                        //Map<String,Double> feature1Map=f.feature1(searcher.index,CorrectedExpandedTerms,ser,20);
                         //Map<String,Double> feature2Map=f.feature2(searcher.index,CorrectedExpandedTerms,searcher);
                        // Map<String,Double> feature3Map=f.feature3(searcher.index,CorrectedExpandedTerms,ser,terms,20);
                         //Map<String,Double> feature4Map=f.feature4(CorrectedExpandedTerms,terms,searcher);
@@ -99,10 +99,10 @@
                          Testing if the expanded terms are good by adding it to the original model
 
                          */
-                             SearchResult.dumpDocno(searcher.index, field_docno, ser);
+                             SearchResult.dumpDocno(searcher.index, field_docno, ser);  // orginal Query results
                             double p30=0,apValue=0;
-                              p30= EvalUtils.precision(ser, qrels.get(qid), 30);
-                        apValue= EvalUtils.avgPrec(ser, qrels.get(qid), top);
+                              p30= EvalUtils.precision(ser, qrels.get(qid), 30); // p30 for original query
+                        apValue= EvalUtils.avgPrec(ser, qrels.get(qid), top);// ap value for original query
                          /*    System.out.printf(
                         "%-10s%8.3f%8.3f\n",
                         qid,
@@ -110,18 +110,21 @@
                         apValue
                 );*/
 
-                        Map<String,Integer> GoodBadTermMap=new TreeMap<>();
+                        Map<String,Integer> GoodBadTermMap=new TreeMap<>();  // map for good bad terms
+                        // running over expansion terms from SMM
                        for(String expTerm:CorrectedExpandedTerms) {
-                            List<SearchResult> SerExpTerm=searcher.search("content",terms,mu,top);
+                            List<SearchResult> SerExpTerm=searcher.search("content",terms,mu,top);  //search results from original query to add exapnsion term with w=0.01
                            SearchResult.dumpDocno(searcher.index, field_docno, SerExpTerm);
-                            List<SearchResult> SerExpTerm1=searcher.search("content",terms,mu,top);
+                            List<SearchResult> SerExpTerm1=searcher.search("content",terms,mu,top); //search results from original query to add exapnsion term with w=-0.01
                            SearchResult.dumpDocno(searcher.index, field_docno, SerExpTerm1);
-                           for (int i = 0; i < SerExpTerm.size(); i++) { //SerExpTerm.size()
+                           // running over the documents from the search result
+                           for (int i = 0; i < SerExpTerm.size(); i++) {
                                 int docid = SerExpTerm.get(i).getDocid();
-                                double scoreExpterm= searcher.dirichletLogProbability(expTerm,docid,mu,0.01);
-                                double scoreExpTerm1=searcher.dirichletLogProbability(expTerm,docid,mu,-0.01);
+                                double scoreExpterm= searcher.dirichletLogProbability(expTerm,docid,mu,0.01); // calculating the score for the expansion term when w=0.01
+                                double scoreExpTerm1=searcher.dirichletLogProbability(expTerm,docid,mu,-0.01);// calculating the score for the expansion term when w=-0.01
                                 double QLScore=SerExpTerm.get(i).getScore();
                                 double QLScore1=SerExpTerm1.get(i).getScore();
+                               System.out.println("expand term "+expTerm+" docid "+docid+" score diri "+scoreExpterm);
                                SerExpTerm.get(i).setScore(QLScore+scoreExpterm);
                                 SerExpTerm1.get(i).setScore(QLScore1+scoreExpTerm1);
                             }
@@ -129,7 +132,7 @@
                             Collections.sort(SerExpTerm1,((o1, o2) -> o2.getScore().compareTo(o1.getScore())));
 
                              double p30_Expanded=0,apValue_Expanded=0;
-                           p30_Expanded= EvalUtils.precision(SerExpTerm, qrels.get(qid), 30);
+                           p30_Expanded= EvalUtils.precision(SerExpTerm, qrels.get(qid), 30);// p30 value for expanded query when w=0.01
                             apValue_Expanded= EvalUtils.avgPrec(SerExpTerm, qrels.get(qid), top);
                             /*System.out.printf(
                                     "%-10s%8.3f%8.3f\n",
@@ -138,7 +141,7 @@
                                     apValue_Expanded
                             );*/
                             double p30_Expanded1=0,apValue_Expanded1=0;
-                            p30_Expanded1= EvalUtils.precision(SerExpTerm1, qrels.get(qid), 30);
+                            p30_Expanded1= EvalUtils.precision(SerExpTerm1, qrels.get(qid), 30);// p30 value for expanded query when w=-0.01
                             apValue_Expanded1= EvalUtils.avgPrec(SerExpTerm1, qrels.get(qid), top);
                            /* System.out.printf(
                                     "%-10s%8.3f%8.3f\n",
@@ -146,7 +149,24 @@
                                     p30_Expanded1,
                                     apValue_Expanded1
                             );*/
-                            if((apValue_Expanded>apValue) && (apValue_Expanded1<apValue))
+/*
+                           double chnge1 = (apValue_Expanded - apValue)/apValue;
+                           double chnge2 = (apValue_Expanded1 - apValue)/apValue;
+
+                        if(Math.abs(chnge1) > 0.005 && Math.abs(chnge2)> 0.005) {
+                            if (chnge1 > 0.0 && chnge2 < 0.0) {
+                                GoodBadTermMap.put(expTerm, +1);
+                            }
+
+                            else if(chnge1 < 0.0 && chnge2 > 0.0){
+                                GoodBadTermMap.put(expTerm, -1);
+                            }
+                        }
+
+                        else
+                            GoodBadTermMap.put(expTerm, 0);*/
+
+                           if((apValue_Expanded>apValue) && (apValue_Expanded1<apValue))
                             {
                                 GoodBadTermMap.put(expTerm,+1);
                             }
@@ -157,21 +177,27 @@
                             else
                                 GoodBadTermMap.put(expTerm,-1);
                         }
-                        int countNeg=0,countPos=0;
+                        int countNeg=0,countPos=0,countNeu=0;
                         for(Map.Entry<String,Integer> t:GoodBadTermMap.entrySet())
                         {
-                            System.out.println("expansionterm: "+t.getKey()+" Goodness :"+t.getValue());
+             //               System.out.println("expansionterm: "+t.getKey()+" Goodness :"+t.getValue());
                             if(t.getValue()==-1)
                             {
                                 countNeg++;
+                            }
+                            else if(t.getValue()==0)
+                            {
+                                countNeu++;
                             }
                             else
                             {
                                 countPos++;
                             }
                         }
-                        System.out.println("Percent negative terms: "+((double)countNeg/GoodBadTermMap.size())*100+" "+countNeg);
-                System.out.println("Percent negative terms: "+((double)countPos/GoodBadTermMap.size())*100+" "+countPos);
+                   //     System.out.println("Percent negative terms: "+((double)countNeg/GoodBadTermMap.size())*100+" "+countNeg);
+             //   System.out.println("Percent postive terms: "+((double)countPos/GoodBadTermMap.size())*100+" "+countPos);
+             //   System.out.println("Percent neutra terms: "+((double)countNeu/GoodBadTermMap.size())*100+" "+countNeu);
+
 
 
                 //}
