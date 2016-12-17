@@ -33,7 +33,7 @@
 
                 Map<String, String> queries = EvalUtils.loadQueries(pathQueries);
                 Map<String, Set<String>> qrels = EvalUtils.loadQrels(pathQrels);
-
+                System.out.println(searcher.index.numDocs());
 
                 double mu = 1500;
                 int k = 10;
@@ -57,42 +57,22 @@
                         terms = LuceneUtils.tokenize(query, analyzer);
                         List<SearchResult> ser = searcher.search(field_search,terms,mu,top);
                         Map<String, Double> ql_map = searcher.estimateQueryModelRM1(field_search, terms, mu, mu2, k, n);
-                         Map<String,Double> res=MixtureModel.estimateSMM("content",terms,0.2,20,80);
-                         List<String> CorrectedExpandedTerms =getCorrectedExpandedTerms(res,ser,searcher);
+                         Map<String,Double> smmMap=MixtureModel.estimateSMM("content",terms,0.5,20,80);
+                         List<String> CorrectedExpandedTerms =getCorrectedExpandedTerms(ql_map,ser,searcher);
 
 
                         Features f=new Features();
                         //System.out.println(ql_map.size());
-                        //Map<String,Double> feature1Map=f.feature1(searcher.index,CorrectedExpandedTerms,ser,20);
-                        //Map<String,Double> feature2Map=f.feature2(searcher.index,CorrectedExpandedTerms,searcher);
-                       // Map<String,Double> feature3Map=f.feature3(searcher.index,CorrectedExpandedTerms,ser,terms,20);
-                        //Map<String,Double> feature4Map=f.feature4(CorrectedExpandedTerms,terms,searcher);
-                        //Map<String,Double> feature5Map=f.feature5(searcher.index,CorrectedExpandedTerms,ser,terms);
-                        //f.feature6(ql_map,terms,searcher);
-                        //Map<String,Double> feature7Map=f.feature7(searcher.index,CorrectedExpandedTerms,terms,ser);
-                        //Map<String,Double> feature8Map=f.feature8(CorrectedExpandedTerms,terms,searcher);
-                        //Map<String,Double> feature9Map=f.feature9(searcher.index,ser,terms,CorrectedExpandedTerms);
-                        //Map<String,Double> feature10Map=f.feature10(searcher,terms,CorrectedExpandedTerms);
-                        //List<String> expansionTermList=new ArrayList<>(ql_map.keySet());
-                        List<SearchResult> results = searcher.search(field_search, ql_map, 1000, top);
-
-                        //List<SearchResult> results_SMM=searcher.search(field_search,res,1500,top);
-             /*   for (String w : res.keySet()) {
-                    System.out.println(w + " : " + res.get(w));
-                }*/
-                        SearchResult.dumpDocno(searcher.index, field_docno, results);
-
-                        p10[ix] = EvalUtils.precision(results, qrels.get(qid), 30);
-                        ap[ix] = EvalUtils.avgPrec(results, qrels.get(qid), top);
-                      /*  System.out.printf(
-                                "%-10s%8.3f%8.3f\n",
-                                qid,
-                                p10[ix],
-                                ap[ix]
-                        );
-
-                        ix++;
-*/
+                        Map<String,Double> feature1Map=LuceneQLSearcher.scalingFeatures(f.feature1(searcher.index,CorrectedExpandedTerms,ser,20));
+                        Map<String,Double> feature2Map=LuceneQLSearcher.scalingFeatures(f.feature2(searcher.index,CorrectedExpandedTerms,searcher));
+                        Map<String,Double> feature3Map=LuceneQLSearcher.scalingFeatures(f.feature3(searcher.index,CorrectedExpandedTerms,ser,terms,20));
+                        Map<String,Double> feature4Map=LuceneQLSearcher.scalingFeatures(f.feature4(CorrectedExpandedTerms,terms,searcher));
+                        Map<String,Double> feature5Map=LuceneQLSearcher.scalingFeatures(f.feature5(searcher.index,CorrectedExpandedTerms,ser,terms));
+                        Map<String,Double> feature6Map=LuceneQLSearcher.scalingFeatures(f.feature6(CorrectedExpandedTerms,terms,searcher));
+                        Map<String,Double> feature7Map=LuceneQLSearcher.scalingFeatures(f.feature7(searcher.index,CorrectedExpandedTerms,terms,ser));
+                        Map<String,Double> feature8Map=LuceneQLSearcher.scalingFeatures(f.feature8(CorrectedExpandedTerms,terms,searcher));
+                        Map<String,Double> feature9Map=LuceneQLSearcher.scalingFeatures(f.feature9(searcher.index,ser,terms,CorrectedExpandedTerms));
+                        Map<String,Double> feature10Map=LuceneQLSearcher.scalingFeatures(f.feature10(searcher,terms,CorrectedExpandedTerms));
 
 
                         /*
@@ -103,79 +83,32 @@
                             double p30=0,apValue=0;
                               p30= EvalUtils.precision(ser, qrels.get(qid), 30); // p30 for original query
                         apValue= EvalUtils.avgPrec(ser, qrels.get(qid), top);// ap value for original query
-                         /*    System.out.printf(
-                        "%-10s%8.3f%8.3f\n",
-                        qid,
-                        p30,
-                        apValue
-                );*/
-
+                            System.out.print("P@30: "+ p30);
                         Map<String,Integer> GoodBadTermMap=new TreeMap<>();  // map for good bad terms
                         // running over expansion terms from SMM
                        for(String expTerm:CorrectedExpandedTerms) {
-                            List<SearchResult> SerExpTerm=searcher.search("content",terms,mu,top);  //search results from original query to add exapnsion term with w=0.01
+                           List<String> queryTerm=terms;
+                           queryTerm.add(expTerm);
+                           List<SearchResult> SerExpTerm=searcher.search("content",queryTerm,mu,top);  //search results from original query to add exapnsion term with w=0.01
                            SearchResult.dumpDocno(searcher.index, field_docno, SerExpTerm);
-                            List<SearchResult> SerExpTerm1=searcher.search("content",terms,mu,top); //search results from original query to add exapnsion term with w=-0.01
-                           SearchResult.dumpDocno(searcher.index, field_docno, SerExpTerm1);
-                           // running over the documents from the search result
-                           for (int i = 0; i < SerExpTerm.size(); i++) {
-                                int docid = SerExpTerm.get(i).getDocid();
-                                double scoreExpterm= searcher.dirichletLogProbability(expTerm,docid,mu,0.01); // calculating the score for the expansion term when w=0.01
-                                double scoreExpTerm1=searcher.dirichletLogProbability(expTerm,docid,mu,-0.01);// calculating the score for the expansion term when w=-0.01
-                                double QLScore=SerExpTerm.get(i).getScore();
-                                double QLScore1=SerExpTerm1.get(i).getScore();
-                               System.out.println("expand term "+expTerm+" docid "+docid+" score diri "+scoreExpterm);
-                               SerExpTerm.get(i).setScore(QLScore+scoreExpterm);
-                                SerExpTerm1.get(i).setScore(QLScore1+scoreExpTerm1);
-                            }
-                            Collections.sort( SerExpTerm, ( o1, o2 ) -> o2.getScore().compareTo( o1.getScore() ) );
-                            Collections.sort(SerExpTerm1,((o1, o2) -> o2.getScore().compareTo(o1.getScore())));
+                           double p30_Expanded=0,apValue_Expanded=0;
+                           p30_Expanded= EvalUtils.precision(SerExpTerm, qrels.get(qid), 30); // p30 for original query
+                           apValue_Expanded= EvalUtils.avgPrec(SerExpTerm, qrels.get(qid), top);
+                           System.out.println(expTerm+" : "+apValue_Expanded +" :"+apValue);
 
-                             double p30_Expanded=0,apValue_Expanded=0;
-                           p30_Expanded= EvalUtils.precision(SerExpTerm, qrels.get(qid), 30);// p30 value for expanded query when w=0.01
-                            apValue_Expanded= EvalUtils.avgPrec(SerExpTerm, qrels.get(qid), top);
-                            /*System.out.printf(
-                                    "%-10s%8.3f%8.3f\n",
-                                    qid,
-                                    p30_Expanded,
-                                    apValue_Expanded
-                            );*/
-                            double p30_Expanded1=0,apValue_Expanded1=0;
-                            p30_Expanded1= EvalUtils.precision(SerExpTerm1, qrels.get(qid), 30);// p30 value for expanded query when w=-0.01
-                            apValue_Expanded1= EvalUtils.avgPrec(SerExpTerm1, qrels.get(qid), top);
-                           /* System.out.printf(
-                                    "%-10s%8.3f%8.3f\n",
-                                    qid,
-                                    p30_Expanded1,
-                                    apValue_Expanded1
-                            );*/
-/*
-                           double chnge1 = (apValue_Expanded - apValue)/apValue;
-                           double chnge2 = (apValue_Expanded1 - apValue)/apValue;
-
-                        if(Math.abs(chnge1) > 0.005 && Math.abs(chnge2)> 0.005) {
-                            if (chnge1 > 0.0 && chnge2 < 0.0) {
-                                GoodBadTermMap.put(expTerm, +1);
-                            }
-
-                            else if(chnge1 < 0.0 && chnge2 > 0.0){
-                                GoodBadTermMap.put(expTerm, -1);
-                            }
-                        }
-
-                        else
-                            GoodBadTermMap.put(expTerm, 0);*/
-
-                           if((apValue_Expanded>apValue) && (apValue_Expanded1<apValue))
+                            double diff=(apValue_Expanded-apValue);
+                          // double diff=(p30_Expanded-p30)/p30;
+                        //   System.out.println(expTerm+":"+diff);
+                           if(diff>0.0005)
                             {
                                 GoodBadTermMap.put(expTerm,+1);
                             }
-                            else if((apValue_Expanded1==apValue)|| (apValue_Expanded==apValue))
+                            else if(diff<-0.0005)
                             {
-                                GoodBadTermMap.put(expTerm,0);
+                                GoodBadTermMap.put(expTerm,-1);
                             }
                             else
-                                GoodBadTermMap.put(expTerm,-1);
+                                GoodBadTermMap.put(expTerm,0);
                         }
                         int countNeg=0,countPos=0,countNeu=0;
                         for(Map.Entry<String,Integer> t:GoodBadTermMap.entrySet())
@@ -194,9 +127,9 @@
                                 countPos++;
                             }
                         }
-                   //     System.out.println("Percent negative terms: "+((double)countNeg/GoodBadTermMap.size())*100+" "+countNeg);
-             //   System.out.println("Percent postive terms: "+((double)countPos/GoodBadTermMap.size())*100+" "+countPos);
-             //   System.out.println("Percent neutra terms: "+((double)countNeu/GoodBadTermMap.size())*100+" "+countNeu);
+                        System.out.println("Percent negative terms: "+((double)countNeg/GoodBadTermMap.size())*100+" "+countNeg);
+                System.out.println("Percent postive terms: "+((double)countPos/GoodBadTermMap.size())*100+" "+countPos);
+                System.out.println("Percent neutra terms: "+((double)countNeu/GoodBadTermMap.size())*100+" "+countNeu);
 
 
 
@@ -301,6 +234,20 @@
             }
 
             return CorrectedExpandedTerms;
+        }
+
+        public static Map<String,Double> scalingFeatures(Map<String ,Double> features)
+        {
+            Map<String,Double> feature=new HashMap<>();
+            double max=0,min=0;
+            max=Collections.max(features.values());
+            min=Collections.min(features.values());
+            for(Map.Entry<String,Double> entry:features.entrySet())
+            {
+            double score=(entry.getValue()-min)/(max-min);
+                feature.put(entry.getKey(),score);
+            }
+            return feature;
         }
 
         public double dirichletLogProbability(String term,Integer docid,double mu,double weight) throws IOException {

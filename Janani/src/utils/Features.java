@@ -72,7 +72,7 @@
                 Term_dist_FD.put(expand_terms, score);
             }
             for (Map.Entry<String, Double> map : Term_dist_FD.entrySet()) {
-                System.out.println(map.getKey() + "==>" + map.getValue());
+               // System.out.println(map.getKey() + "==>" + map.getValue());
             }
             return Term_dist_FD;
         }
@@ -181,7 +181,7 @@
 
                 double score = Math.log((double) score_of_n_qterms / Qterm_Doc_Positions.keySet().size());
                 feature3Map.put(term, score);
-                      System.out.println(term + ":" + score);
+                  //    System.out.println(term + ":" + score);
             }
             return feature3Map;
         }
@@ -233,7 +233,7 @@
                 }
                 else
                     score = Math.log((double) score_of_n_qterms / qterms.size());
-                System.out.println(expTerm + ":" + score);
+               // System.out.println(expTerm + ":" + score);
                 feature4.put(expTerm, score);
             }
             // System.out.println(score_of_n_qterms);
@@ -330,6 +330,7 @@
                  pairSetMap.put(p,Common_DocID_Set);
                 }
             }
+          //  System.out.println(expansionTermList.size());
             for(String ExpTerms:expansionTermList)
             {
                 PostingsEnum postingExpTerm=MultiFields.getTermDocsEnum(index,"content",new BytesRef(ExpTerms),PostingsEnum.POSITIONS);
@@ -383,98 +384,157 @@
                     score=0;
                 else
                     score = Math.log(score_of_n_qterms / pairSetMap.size());
-                System.out.println(ExpTerms + ":" + score);
+                //System.out.println(ExpTerms + ":" + score);
                 feature5Map.put(ExpTerms,score);
 
             }
         return feature5Map;
         }
-       /* public Map<String,Double> feature6(Map<String, Double> ql_map, List<String> terms, LuceneQLSearcher searcher) throws IOException {
+
+        //this function should give score for each expansion term cooccuring with the pair of terms in the qtermList
+       public Map<String,Double> feature6(List<String> expansionTermList, List<String> terms, LuceneQLSearcher searcher) throws IOException {
             double tot_freq = CorpusLength(searcher.index, searcher);
+           double numerator=0,score=0;
             Map<String,Double> feature6Map=new HashMap<>();
-            Map<Pair<String,String>,Set<Integer>> pairSetMap=new HashMap<>();
-            // Pair<String,String> p=null;
-            for(int i=0;i<terms.size();i++)
-            {
-                PostingsEnum postQterm=MultiFields.getTermDocsEnum(searcher.index,"content",new BytesRef(terms.get(i)),PostingsEnum.POSITIONS);
-                Map<Integer,List<Integer>> Term1_Doc_Pos=getPostingPositionMap(postQterm);
-                Set<Integer> Term1_DocID_Set=new HashSet<>(Term1_Doc_Pos.keySet());
-                for(int j=i+1;j<terms.size();j++)
-                {
-                    PostingsEnum postQterm2=MultiFields.getTermDocsEnum(searcher.index,"content",new BytesRef(terms.get(j)),PostingsEnum.POSITIONS);
-                    Map<Integer,List<Integer>> Term2_Doc_Pos=getPostingPositionMap(postQterm2);
-                    Set<Integer> Term2_DocID_Set=new HashSet<>(Term2_Doc_Pos.keySet());
-                    Set<Integer> Common_DocID_Set=Term2_DocID_Set;
-                    Common_DocID_Set.retainAll(Term1_DocID_Set);
-                    Pair<String,String> p=new Pair<>(terms.get(i),terms.get(j));
+           Map<Integer,Integer> docCoocuranceMap = new TreeMap<>();
+            Map<Integer,Map<Integer,String>> docQtermPosMap = initialiseMap(terms,searcher);
+           Map<Integer,Map<Integer,String>> docExpansiontermPosMap = initialiseMap(expansionTermList,searcher);
+            Map<String,Integer> expansionTermCoOccuranceMap = new TreeMap<>();
+           int numofPairs=0;
 
-                    pairSetMap.put(p,Common_DocID_Set);
-                }
-            }
-            System.out.println("Done set");
-            for(String ExpTerms:ql_map.keySet())
-            {
-                PostingsEnum postingExpTerm=MultiFields.getTermDocsEnum(searcher.index,"content",new BytesRef(ExpTerms),PostingsEnum.POSITIONS);
-                double score_of_n_qterms = 0;
-                for (Pair p : pairSetMap.keySet()) {
-                    String term1= String.valueOf(p.getFirst());
-                    String term2=String.valueOf(p.getSecond());
-                    Set<Integer> pair_doc_list=pairSetMap.get(p);
-                    int Coccurance_count = 0;
-                    if (postingExpTerm != null) { // if the term does not appear in any document, the posting object may be null
-                        int docid;
-                        while ((docid = postingExpTerm.nextDoc()) != PostingsEnum.NO_MORE_DOCS) {
-                            if (pair_doc_list.contains(docid)) {
-                                PostingsEnum postQterm1=MultiFields.getTermDocsEnum(searcher.index,"content",new BytesRef(term1),PostingsEnum.POSITIONS);
-                                List<Integer> posTerm1=getPostingPositionMap(postQterm1).get(docid);
-                                PostingsEnum postQterm2=MultiFields.getTermDocsEnum(searcher.index,"content",new BytesRef(term2),PostingsEnum.POSITIONS);
-                                List<Integer> posTerm2=getPostingPositionMap(postQterm2).get(docid);
-                                int freq = postingExpTerm.freq();
-                                if(freq>=3) {
-                                    for (int i = 0; i < freq; i++) {
-                                        int position_of_expansionTerm = postingExpTerm.nextPosition();
-                                        int max=0,min=0;
-                                        if(posTerm1.size()>posTerm2.size())
-                                        {
-                                            max=posTerm1.size();
-                                            min=posTerm2.size();
-                                        }
-                                        else
-                                        {
-                                            max=posTerm2.size();
-                                            min=posTerm1.size();
-                                        }
-                                        for(int k1=0;k1<min;k1++)
-                                        {
-                                            System.out.println("enter outter loop");
-                                            for(int k2=0;k2<max;k2++)
-                                            {
-                                                if(Math.abs(k1-position_of_expansionTerm)<=15 && Math.abs(k2-position_of_expansionTerm)<=15)
-                                                {
-                                                    Coccurance_count++;
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    score_of_n_qterms += Coccurance_count / tot_freq;
-                    System.out.println(term1+","+term2+":"+Coccurance_count);
-                }
-                // System.out.println(score_of_n_qterms);
-                double score=0;
-                if(score_of_n_qterms==0)
-                    score=0;
-                else
-                    score = Math.log(score_of_n_qterms / pairSetMap.size());
-                System.out.println(ExpTerms + ":" + score);
-                feature6Map.put(ExpTerms,score);
-            }
+           //
+           boolean debug = true;
+           for(int i = 0;i<searcher.index.numDocs();i++) {
+               int docLen = searcher.getDocLengthReader("content").getLength(i);
+               Map<Integer, String> termPosMap = docQtermPosMap.get(i);
+               Map<Integer, String> expansionTermPosMap = docExpansiontermPosMap.get(i);
+
+               List<Triplet> pairList = termPosMap != null && termPosMap.size() > 0 ? pairQtermList(termPosMap) : new ArrayList<Triplet>();
+               numofPairs += pairList.size();
+
+               List<Triplet> tripletList = expansionTermPosMap != null && expansionTermPosMap.size() > 0 ?
+                       tripletExpansionQtermList(pairList, expansionTermPosMap, docLen) : pairList;
+
+               tripletCooccurance(tripletList, expansionTermCoOccuranceMap);
+              /* if (debug && expansionTermCoOccuranceMap.size() != 0) {
+                   System.out.println("doc No : " + i);
+                   debug = false;
+               }*/
+
+
+           }
+         //  System.out.println(tot_freq);
+          // System.out.println(numofPairs);
+
+           for(String eTerm : expansionTermList){
+                   feature6Map.put(eTerm,0.0);
+           }
+           for(Map.Entry<String,Integer> map : expansionTermCoOccuranceMap.entrySet()) {
+
+
+                score = 0;
+                if(numofPairs != 0 && map.getValue()!=0)
+                    score = Math.log(((double)1/numofPairs)*(map.getValue() / tot_freq));
+
+
+                feature6Map.put(map.getKey(),score);
+           }
             return feature6Map;
-        }*/
+        }
 
+        private static void tripletCooccurance(List<Triplet> tripletList,
+                                                              Map<String,Integer> expansionTermCoOccuranceMap ){
+            int tripletCount = 0;
+            for(Triplet t:tripletList) {
+                if (t.getEpos() != -1){
+                    int count  = 0;
+                    if(expansionTermCoOccuranceMap.containsKey(t.getExpansionTerm())){
+                        count = expansionTermCoOccuranceMap.get(t.getExpansionTerm()) + 1;
+                    }
+                    expansionTermCoOccuranceMap.put(t.getExpansionTerm(), count);
+                }
+            }
+        }
+
+        private static List<Triplet> pairQtermList( Map<Integer,String > termPosMap){
+            List<Triplet> tripletList = new ArrayList<Triplet>();
+            for(Map.Entry<Integer, String> map : termPosMap.entrySet()){
+                int pos = map.getKey();
+                for(int i = pos + 1 ;i< (pos + 15) ;i++){
+                    if(!termPosMap.containsKey(i)){
+                        continue;
+                    }
+
+                    Triplet t = new Triplet();
+                    String term1 = map.getValue();
+                    t.setTerm1(term1);
+                    t.setPos1(pos);
+                    String term2 = termPosMap.get(i);
+
+                    if (term1.equals(term2)) // this can be allowed if the same term comes more than once in the query
+                        continue;
+
+                    t.setTerm2(term2);
+                    t.setPos2(i);
+                    tripletList.add(t);
+                }
+            }
+            return tripletList;
+        }
+
+        private static List<Triplet> tripletExpansionQtermList(List<Triplet> tripletList,Map<Integer,String > expansionTermPosMap,int docLen){
+            for(Triplet t:tripletList){
+                int minPos = Math.min(t.getPos1(), t.getPos2());
+                int maxPos = Math.max(t.getPos1(), t.getPos2());
+
+                int windowLowerBound = Math.max(0, maxPos -15);
+                int windowUpperBound = Math.min(docLen,minPos+15); //min between doc length
+
+                for(int i = windowLowerBound; i < windowUpperBound; i++){
+                    if(expansionTermPosMap.containsKey(i)){
+                        t.setEpos(i);
+                        t.setExpansionTerm(expansionTermPosMap.get(i));
+                    }
+                }
+            }
+            return tripletList;
+        }
+
+        private Map<Integer,Map<Integer,String>> initialiseMap(List<String> terms,LuceneQLSearcher searcher) throws IOException {
+
+            Map<Integer,Map<Integer,String>> returnMap = new TreeMap<>();
+            Map<Integer,String> termPosMap = new TreeMap<>();
+         //   Map<Integer,String> expPosMap = new TreeMap<>();
+
+            for(String qterm:terms){
+            PostingsEnum postQterm=MultiFields.getTermDocsEnum(searcher.index,"content",new BytesRef(qterm),PostingsEnum.POSITIONS);
+               // BytesRef br;
+            if(postQterm!= null)
+            {
+                int docid;
+                while((docid=postQterm.nextDoc())!= PostingsEnum.NO_MORE_DOCS)
+                {
+
+                    int freq = postQterm.freq();
+                    for(int pos=0;pos<freq;pos++)
+                    {
+                        int position = postQterm.nextPosition();
+                        if( returnMap.containsKey(docid))
+                        {
+                            termPosMap = returnMap.get(docid);
+                        }
+                        else
+                        {
+                            termPosMap = new TreeMap<>();
+                        }
+                        termPosMap.put(position,qterm);
+                        returnMap.put(docid,termPosMap);
+                    }
+                }
+            }
+            }
+            return returnMap;
+        }
         public Map<String,Double> feature7(IndexReader index, List<String> expansionTermList, List<String> terms,List<SearchResult> ser) throws IOException {
                  List<Integer> FeedbackDocList = new ArrayList<>();
             int numfb=20;
@@ -534,7 +594,7 @@
                 /*if(Double.isNaN(score))
                     score=0;*/
                 feature7Map.put(expTerm,score);
-               System.out.println(expTerm+":"+score);
+              // System.out.println(expTerm+":"+score);
             }
             //System.out.println("NAN: "+Math.log(0/0));
             return feature7Map;
@@ -596,7 +656,7 @@
                     score=Math.log(numerator/denom);
                 /*if(Double.isNaN(score))
                     score=0;*/
-                System.out.println(expTerm+":"+score);
+             //   System.out.println(expTerm+":"+score);
                 feature8.put(expTerm,score);
             }
             //System.out.println("NAN: "+Math.log(0/0));
@@ -641,7 +701,7 @@
                     }
                 }
                 expTermDocSet.retainAll(commonDocId);// list of docid for I to pass I=1
-                System.out.println("Score for "+expTerm+" : "+Math.log(expTermDocSet.size()+0.5));
+               // System.out.println("Score for "+expTerm+" : "+Math.log(expTermDocSet.size()+0.5));
                 feature9Map.put(expTerm,Math.log(expTermDocSet.size()+0.5));
             }
             return feature9Map;
@@ -676,7 +736,7 @@
                     }
                 }
                 expTermDocSet.retainAll(commonDocId);// list of docid for I to pass I=1
-                System.out.println("Score for "+expTerm+" : "+Math.log(expTermDocSet.size()+0.5));
+              //  System.out.println("Score for "+expTerm+" : "+Math.log(expTermDocSet.size()+0.5));
                 feature10Map.put(expTerm,Math.log(expTermDocSet.size()+0.5));
             }
             return feature10Map;
