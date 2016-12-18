@@ -84,7 +84,7 @@ public class SMM {
           searcher.index.getTermVector(result.getDocid(), field).iterator();
       BytesRef br;
       while ((br = iterator.next()) != null) {
-        if (!searcher.isStopwords(br.utf8ToString())) {
+        if (!searcher.stopwords.contains(br.utf8ToString())) {
           voc.add(br.utf8ToString());
         }
       }

@@ -4,7 +4,7 @@ import java.util.stream.Collectors;
 
 public abstract class AbstractQLSearcher {
 
-  protected HashSet<String> stopwords;
+  protected static HashSet<String> stopwords;
 
   public abstract PostingList getPosting(String field, String term)
       throws IOException;

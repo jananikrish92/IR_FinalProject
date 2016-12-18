@@ -23,6 +23,7 @@ public class LuceneQLSearcher extends AbstractQLSearcher {
     this.dirLucene = FSDirectory.open(this.dirBase.toPath());
     this.index = DirectoryReader.open(dirLucene);
     this.doclens = new HashMap<>();
+    this.setStopwords("stopwords_inquery");
   }
 
   public IndexReader getIndex() {
@@ -112,6 +113,37 @@ public class LuceneQLSearcher extends AbstractQLSearcher {
     }
 
     return rm3;
+  }
+
+  public static List<String> getCorrectedExpandedTerms(
+      Map<String, Double> ql_map, List<SearchResult> ser,
+      LuceneQLSearcher searcher) throws IOException {
+    List<String> CorrectedExpandedTerms = new ArrayList<>();
+    for (String expTerms : ql_map.keySet()) {
+      int count = 0;
+      for (int i = 0; i < ser.size(); i++) {
+        int docid = ser.get(i).getDocid();
+        TermsEnum expTermVector =
+            searcher.index.getTermVector(docid, "content").iterator();
+        BytesRef br;
+        double freq = 0;
+        while ((br = expTermVector.next()) != null) {
+          String term = br.utf8ToString();
+          if (term.equals(expTerms)) {
+            freq = expTermVector.totalTermFreq();
+            break;
+          }
+        }
+        if (freq > 0) {
+          count++;
+        }
+      }
+      if (count >= 3) {
+        CorrectedExpandedTerms.add(expTerms);
+      }
+    }
+
+    return CorrectedExpandedTerms;
   }
 
 }
