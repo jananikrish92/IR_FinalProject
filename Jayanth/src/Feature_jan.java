@@ -1,8 +1,10 @@
+import org.apache.commons.math3.analysis.integration.gauss.SymmetricGaussIntegrator;
 import org.apache.commons.math3.util.Pair;
 import org.apache.lucene.index.*;
 import org.apache.lucene.util.BytesRef;
 
 import java.awt.*;
+import java.awt.geom.Arc2D;
 import java.io.IOException;
 import java.util.*;
 import java.util.List;
@@ -61,7 +63,7 @@ public class Feature_jan {
           }
         }
       }
-      if (Exapanded_terms_freq == 0) {
+      if (Exapanded_terms_freq == 0 || tot_freq==0) {
         score = 0;
       } else {
         score = Math.log(Exapanded_terms_freq / tot_freq);
@@ -85,7 +87,12 @@ public class Feature_jan {
     double score = 0;
     for (String expand_terms :expansionTermList) {
       double corpusTF = index.totalTermFreq(new Term("content", expand_terms));
-      score = Math.log(corpusTF / corpusLength);
+      if(corpusTF==0 || corpusLength==0) {
+        score = 0;
+      }
+      else {
+        score = Math.log(corpusTF / corpusLength);
+      }
       Term_dist_FD.put(expand_terms, score);
     }
     return Term_dist_FD;
@@ -176,15 +183,18 @@ public class Feature_jan {
       }
       // System.out.println(score_of_n_qterms);
       double score=0;
-    if(score_of_n_qterms==0)
+    if(score_of_n_qterms==0 || Qterm_Doc_Positions.keySet().size()==0 || Double.isNaN(score_of_n_qterms))
     {
+       // System.out.println(score);
       score=0.0;
+
     }
     else {
       score = Math.log((double) score_of_n_qterms / Qterm_Doc_Positions.keySet().size());
+      //  System.out.println(score);
     }
       feature3Map.put(term, score);
-      //   System.out.println(term + ":" + score);
+        // System.out.println(term + ":" + score);
     }
     return feature3Map;
   }
@@ -230,7 +240,7 @@ public class Feature_jan {
         score_of_n_qterms += Coccurance_count / tot_freq;
       }
       double score=0;
-      if(score_of_n_qterms==0)
+      if(score_of_n_qterms==0 || qterms.size()==0)
       {
         score=0;
       }
@@ -383,7 +393,7 @@ public class Feature_jan {
       }
       double score=0;
       // System.out.println(score_of_n_qterms);
-      if(score_of_n_qterms==0)
+      if(score_of_n_qterms==0 || pairSetMap.size()==0)
         score=0;
       else
         score = Math.log(score_of_n_qterms / pairSetMap.size());
@@ -590,7 +600,7 @@ public class Feature_jan {
           denom+=CoccuranceMap.get(pair);
         }
       }
-      if(numerator==0)
+      if(numerator==0 || denom==0)
         score=0;
       else
         score=Math.log(numerator/denom);
@@ -653,7 +663,7 @@ public class Feature_jan {
           denom+=CoccuranceMap.get(pair);
         }
       }
-      if(numerator==0)
+      if(numerator==0 || denom==0)
         score=0;
       else
         score=Math.log(numerator/denom);
@@ -740,7 +750,9 @@ public class Feature_jan {
       }
       expTermDocSet.retainAll(commonDocId);// list of docid for I to pass I=1
       //  System.out.println("Score for "+expTerm+" : "+Math.log(expTermDocSet.size()+0.5));
-      feature10Map.put(expTerm,Math.log(expTermDocSet.size()+0.5));
+        double score=Math.log(expTermDocSet.size()+0.5);
+        //System.out.println(expTerm+":"+score);
+      feature10Map.put(expTerm,score);
     }
     return feature10Map;
   }

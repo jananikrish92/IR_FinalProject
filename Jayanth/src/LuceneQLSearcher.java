@@ -23,7 +23,7 @@ public class LuceneQLSearcher extends AbstractQLSearcher {
     this.dirLucene = FSDirectory.open(this.dirBase.toPath());
     this.index = DirectoryReader.open(dirLucene);
     this.doclens = new HashMap<>();
-    this.setStopwords("C:\\Users\\jannu bhai\\IdeaProjects\\IRProjectVersion2\\stopwords_inquery");
+    this.setStopwords("/Users/jananikrishna/Documents/IRFinalProject/stopwords_inquery");
   }
 
   public IndexReader getIndex() {

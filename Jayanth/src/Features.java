@@ -18,6 +18,7 @@ import org.apache.lucene.index.TermsEnum;
 import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.SetOnce;
+import org.apache.lucene.util.StringHelper;
 
 public class Features {
   public static Map<String, Double> term_distrib(IndexReader index,
@@ -200,25 +201,25 @@ public class Features {
 
   public static void main(String[] args) throws IOException {
 
-    String pathIndex = "C:\\Users\\jannu bhai\\IdeaProjects\\IRProjectVersion2\\index_trec123";
+    String pathIndex = "/Users/jananikrishna/Documents/IRFinalProject/index_robust04";
     Analyzer analyzer = LuceneUtils.getAnalyzer(LuceneUtils.Stemming.Krovetz);
 
-    String pathQueries = "C:\\Users\\jannu bhai\\IdeaProjects\\IRProjectVersion2\\queries_trec1-3"; // change it to your
+    String pathQueries = "/Users/jananikrishna/Documents/IRFinalProject/queries_robust04"; // change it to your
     // query file path
-    String pathQrels = "C:\\Users\\jannu bhai\\IdeaProjects\\IRProjectVersion2\\qrels_trec1-3"; // change it to your
+    String pathQrels = "/Users/jananikrishna/Documents/IRFinalProject/qrels_robust04"; // change it to your
     // qrels file path
-    String pathStopwords = "C:\\Users\\jannu bhai\\IdeaProjects\\IRProjectVersion2\\stopwords_inquery";
+    String pathStopwords = "/Users/jananikrishna/Documents/IRFinalProject/stopwords_inquery";
     String field_docno = "docno";
     String field_search = "content";
       //String indexName = "index_trec123";
-     String outputFolder = "C:\\Users\\jannu bhai\\IdeaProjects\\IRProjectVersion2\\indexTrec123OP\\BaseLineRM1"; //change based on setting
+     String outputFolder = "/Users/jananikrishna/Documents/IRFinalProject/indexRobustOP/BaseLineRM1"; //change based on setting
     // RM searcher = new RM(pathIndex);
     LuceneQLSearcher searcher = new LuceneQLSearcher(pathIndex);
     searcher.setStopwords(pathStopwords);
     System.out.println("entering main");
     Map<String, String> queries = EvalUtils.loadQueries(pathQueries);
     Map<String, Set<String>> qrels = EvalUtils.loadQrels(pathQrels);
-    //String qid="51";
+    //String qid="316";
     int top = 1000;
     double mu = 1000;
     int numfbdocs = 20;
@@ -227,7 +228,7 @@ public class Features {
       String query = queries.get(qid);// qid);
       List<String> terms = LuceneUtils.tokenize(query, analyzer);
     //  System.out.println(qid);
-        File file = new File(outputFolder+"\\"+qid);
+        File file = new File(outputFolder+"/"+qid);
         PrintWriter pw = new PrintWriter(file);
       RM rm = new RM(pathIndex);
       Map<String, Double> scoresRM1 = searcher.estimateQueryModelRM1(
@@ -240,7 +241,7 @@ public class Features {
         Feature_jan feature=new Feature_jan();
       SearchResult.dumpDocno(searcher.index, "docno", qlRes);
     //  feature.feature3(searcher.index,expansionTermsList,qlRes,terms,20);
-     Map<String,Double> feature1Map=scalingFeatures(feature.feature1(searcher.index,expansionTermsList,qlRes,20));
+    Map<String,Double> feature1Map=scalingFeatures(feature.feature1(searcher.index,expansionTermsList,qlRes,20));
       System.out.print(feature1Map.size());
        Map<String,Double> feature2Map=scalingFeatures(feature.feature2(searcher.index,expansionTermsList,searcher));
       System.out.print(feature2Map.size());
@@ -250,7 +251,6 @@ public class Features {
       System.out.print(feature4Map.size());
         Map<String,Double> feature5Map=scalingFeatures(feature.feature5(searcher.index,expansionTermsList,qlRes,terms));
       System.out.print(feature5Map.size());
-      //  Map<String,Double> feature6Map=scalingFeatures(feature.feature6(expansionTermsList,terms,searcher));
         Map<String,Double> feature7Map=scalingFeatures(feature.feature7(searcher.index,expansionTermsList,terms,qlRes));
       System.out.print(feature7Map.size());
         Map<String,Double> feature8Map=scalingFeatures(feature.feature8(expansionTermsList,terms,searcher));
@@ -259,8 +259,12 @@ public class Features {
       System.out.print(feature9Map.size());
         Map<String,Double> feature10Map=scalingFeatures(feature.feature10(searcher,terms,expansionTermsList));
       System.out.print(feature10Map.size());
-
+     /*   for(Map.Entry<String,Double> entry:feature3Map.entrySet())
+        {
+            System.out.println(entry.getKey()+":"+entry.getValue());
+        }*/
        // System.out.println("sssssws");
+      //if(null == EvalUtils.precision(qlRes,qrels.get(qid),30))
       double p30 = EvalUtils.precision(qlRes, qrels.get(qid), 30);
       double ap = EvalUtils.avgPrec(qlRes, qrels.get(qid), top);
       System.out.println(qid);
@@ -357,13 +361,13 @@ public class Features {
 
           pw.println(goodBadExpansionTermMap.get(expansionTerms)+" 1:"+feature1Map.get(expansionTerms)+" 2:"+feature2Map.get(expansionTerms)
           +" 3:"+feature3Map.get(expansionTerms)+" 4:"+feature4Map.get(expansionTerms)+" 5:"+feature5Map.get(expansionTerms)+
-          " 6:0.0"+" 7:"+feature7Map.get(expansionTerms)+" 8:"+feature8Map.get(expansionTerms)+" 9:"+feature9Map.get(expansionTerms)+
+          " 7:"+feature7Map.get(expansionTerms)+" 8:"+feature8Map.get(expansionTerms)+" 9:"+feature9Map.get(expansionTerms)+
           " 10:"+feature10Map.get(expansionTerms));
       }
 
    // System.out.println(qid+" good words : "+gcount+" bad words : "+bcount+" neutral words : "+ ncount);
     pw.close();
-   }
+  }
     /*
      * Map<String, Double> word_distrib = term_distrib(searcher.index,
      * scoresRM1, RM1res, terms, searcher, 10);
@@ -454,7 +458,9 @@ public class Features {
         min=Collections.min(features.values());
         for(Map.Entry<String,Double> entry:features.entrySet())
         {
-            double score=(entry.getValue()-min)/(max-min);
+            double score=0;
+            if(max-min!=0)
+                score=(entry.getValue()-min)/(max-min);
             feature.put(entry.getKey(),score);
         }
         return feature;

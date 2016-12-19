@@ -16,7 +16,8 @@ public class EvalUtils {
     double numrel = 0;
     int count = 0;
     for (SearchResult result : results) {
-      if (relDocnos.contains(result.getDocno())) {
+    //  System.out.println(result.getDocno());
+      if (relDocnos !=null && relDocnos.contains(result.getDocno())) {
         numrel++;
       }
       count++;
@@ -24,6 +25,7 @@ public class EvalUtils {
         break;
       }
     }
+
     return numrel / n;
   }
 
@@ -66,7 +68,7 @@ public class EvalUtils {
     double sumprec = 0;
     int count = 0;
     for (SearchResult result : results) {
-      if (relDocnos.contains(result.getDocno())) {
+      if (relDocnos!=null && relDocnos.contains(result.getDocno())) {
         numrel++;
         sumprec += (numrel / (count + 1));
       }
@@ -75,7 +77,13 @@ public class EvalUtils {
         break;
       }
     }
-    return sumprec / relDocnos.size();
+    int size = 0;
+    if(relDocnos!=null)
+      size = relDocnos.size();
+    else
+      return 0;
+
+    return sumprec / size;
   }
 
   /**
