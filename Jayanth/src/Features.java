@@ -212,7 +212,7 @@ public class Features {
     String field_docno = "docno";
     String field_search = "content";
       //String indexName = "index_trec123";
-     String outputFolder = "/Users/jananikrishna/Documents/IRFinalProject/indexRobustOP/BaseLineRM1"; //change based on setting
+     String outputFolder = "/Users/jananikrishna/Documents/IRFinalProject/indexRobustOP/BaseLineSMM"; //change based on setting
     // RM searcher = new RM(pathIndex);
     LuceneQLSearcher searcher = new LuceneQLSearcher(pathIndex);
     searcher.setStopwords(pathStopwords);
@@ -233,10 +233,18 @@ public class Features {
       RM rm = new RM(pathIndex);
       Map<String, Double> scoresRM1 = searcher.estimateQueryModelRM1(
           field_search, terms, 1500.0, 0.0, 20, 80);
-     // System.out.println(qid);
+        Map<String, Double> scoreRM3 = searcher.estimateQueryModelRM3(terms, scoresRM1 , 0.5);
+
+        SMM smm = new SMM();
+        Map<String , Double> scoresSMM = smm.estimateSMM("content",terms,0.5,20,80);
+
+        DMM dmm = new DMM();
+        Map<String , Double> scoresDMM = dmm.estimateDMM("content",terms,0.5,20,80);
+
+        // System.out.println(qid);
       List<SearchResult> qlRes = rm.search("content", terms, 1500.0, 1000);
       //System.out.println(qid);
-      List<String> expansionTermsList = getCorrectedExpandedTerms(scoresRM1, qlRes, searcher);
+      List<String> expansionTermsList = getCorrectedExpandedTerms(scoresSMM, qlRes, searcher);
       System.out.println(expansionTermsList.size());
         Feature_jan feature=new Feature_jan();
       SearchResult.dumpDocno(searcher.index, "docno", qlRes);
@@ -361,8 +369,8 @@ public class Features {
 
           pw.println(goodBadExpansionTermMap.get(expansionTerms)+" 1:"+feature1Map.get(expansionTerms)+" 2:"+feature2Map.get(expansionTerms)
           +" 3:"+feature3Map.get(expansionTerms)+" 4:"+feature4Map.get(expansionTerms)+" 5:"+feature5Map.get(expansionTerms)+
-          " 7:"+feature7Map.get(expansionTerms)+" 8:"+feature8Map.get(expansionTerms)+" 9:"+feature9Map.get(expansionTerms)+
-          " 10:"+feature10Map.get(expansionTerms));
+          " 6:"+feature7Map.get(expansionTerms)+" 7:"+feature8Map.get(expansionTerms)+" 8:"+feature9Map.get(expansionTerms)+
+          " 9:"+feature10Map.get(expansionTerms));
       }
 
    // System.out.println(qid+" good words : "+gcount+" bad words : "+bcount+" neutral words : "+ ncount);
