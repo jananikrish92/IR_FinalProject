@@ -247,213 +247,213 @@ public class RM extends AbstractQLSearcher {
    * searcher.close(); } catch (Exception e) { e.printStackTrace(); } }
    */
 
-  protected File dirBase;
-  protected Directory dirLucene;
-  protected IndexReader index;
-  protected Map<String, DocLengthReader> doclens;
+    protected File dirBase;
+    protected Directory dirLucene;
+    protected IndexReader index;
+    protected Map<String, DocLengthReader> doclens;
 
-  public RM(String dirPath) throws IOException {
-    this(new File(dirPath));
-  }
-
-  public RM(File dirBase) throws IOException {
-    this.dirBase = dirBase;
-    this.dirLucene = FSDirectory.open(this.dirBase.toPath());
-    this.index = DirectoryReader.open(dirLucene);
-    this.doclens = new HashMap<>();
-  }
-
-  public IndexReader getIndex() {
-    return this.index;
-  }
-
-  public PostingList getPosting(String field, String term) throws IOException {
-    return new LuceneTermPostingList(index, field, term);
-  }
-
-  public DocLengthReader getDocLengthReader(String field) throws IOException {
-    DocLengthReader doclen = doclens.get(field);
-    if (doclen == null) {
-      doclen = new FileDocLengthReader(this.dirBase, field);
-      doclens.put(field, doclen);
-    }
-    return doclen;
-  }
-
-  public void close() throws IOException {
-    index.close();
-    dirLucene.close();
-    for (DocLengthReader doclen : doclens.values()) {
-      doclen.close();
-    }
-  }
-
-  public static double scoreDirich(Map<String, Double> tfs,
-      Map<String, Double> tfcs, double dl, double cl) {
-    System.out.println(tfs + " " + tfcs + " " + dl + " " + cl);
-    double temp = 1.0;
-    for (String t : tfs.keySet()) {
-
-      temp *= (tfs.get(t) + 1000 * (tfcs.get(t) / cl)) / (1000 + dl);
-
+    public RM(String dirPath) throws IOException {
+        this(new File(dirPath));
     }
 
-    return temp;
-  }
+    public RM(File dirBase) throws IOException {
+        this.dirBase = dirBase;
+        this.dirLucene = FSDirectory.open(this.dirBase.toPath());
+        this.index = DirectoryReader.open(dirLucene);
+        this.doclens = new HashMap<>();
+    }
 
-  public Map<String, Double> getTFS(String field, List<SearchResult> results,
-      double mu2, double mu1, int numfbdocs) throws IOException {
+    public IndexReader getIndex() {
+        return this.index;
+    }
 
-    Terms vector = null;
+    public PostingList getPosting(String field, String term) throws IOException {
+        return new LuceneTermPostingList(index, field, term);
+    }
 
-    Map<String, Double> PTCorpus = new HashMap<String, Double>();
-    Map<String, Double[]> scoreFB = new HashMap<String, Double[]>();
-    Map<String, Double> vocabulary = new HashMap<String, Double>();
-    double doclen[] = new double[numfbdocs];
-    // System.out.println("Results size : " + results.size());
-    for (int i = 0; i < Math.min(numfbdocs, results.size()); i++) {
-
-      int dnum = results.get(i).getDocid();
-      vector = this.index.getTermVector(dnum, field); // Read the document's
-      // term vector.
-
-      TermsEnum te = vector.iterator();
-
-      BytesRef term;
-      Double[] scoreList = null;
-      while ((term = te.next()) != null) {
-        if (this.stopwords.contains(term.utf8ToString()) != true) {
-          String termstr = term.utf8ToString(); // Get the text string of the
-          // term.
-          double freq = te.totalTermFreq(); // Get the frequency of the term in
-          // the document.
-          if ((Double) freq == null)
-            freq = 0.0;
-
-          vocabulary.put(termstr, vocabulary.getOrDefault(termstr, 0.0) + freq);
-          doclen[i] += freq;
-          scoreList = scoreFB.get(termstr);
-
-          if (scoreList == null)
-            scoreList = new Double[numfbdocs];
-
-          scoreList[i] = (double) freq;
-
-          scoreFB.put(termstr, scoreList);
+    public DocLengthReader getDocLengthReader(String field) throws IOException {
+        DocLengthReader doclen = doclens.get(field);
+        if (doclen == null) {
+            doclen = new FileDocLengthReader(this.dirBase, field);
+            doclens.put(field, doclen);
         }
-      }
+        return doclen;
     }
 
-    Map<String, Double> PtCorpus = new HashMap<String, Double>();
-
-    Fields fields = MultiFields.getFields(this.index);
-
-    Terms totalWords = fields.terms("content");
-
-    long corpusSize = totalWords.getSumTotalTermFreq();
-
-    for (String t : scoreFB.keySet()) {
-      double totaltermfreq = this.index.totalTermFreq(new Term("content", t));
-      double temp = totaltermfreq / corpusSize;
-      PtCorpus.put(t, mu2 * temp);
-
+    public void close() throws IOException {
+        index.close();
+        dirLucene.close();
+        for (DocLengthReader doclen : doclens.values()) {
+            doclen.close();
+        }
     }
 
-    Map<String, Double> finalScores = new HashMap<String, Double>();
-    for (String t1 : scoreFB.keySet()) {
-      double temp = 0.0;
-      double res = 0.0;
-      Double scoreArr[] = scoreFB.get(t1);
-      for (int i = 0; i < Math.min(scoreArr.length, results.size()); i++) {
-        if (scoreArr[i] != null)
-          temp = (scoreArr[i] + PtCorpus.get(t1));
-        else
-          temp = (PtCorpus.get(t1));
+    public static double scoreDirich(Map<String, Double> tfs,
+                                     Map<String, Double> tfcs, double dl, double cl) {
+        System.out.println(tfs + " " + tfcs + " " + dl + " " + cl);
+        double temp = 1.0;
+        for (String t : tfs.keySet()) {
 
-        temp /= (doclen[i] + mu2);
-
-        res += temp * results.get(i).getScore();
-
-      }
-      finalScores.put(t1, res);
-    }
-
-    double normalizer = 0.0;
-
-    for (String term : finalScores.keySet())
-      normalizer += finalScores.get(term);
-
-    for (String term : finalScores.keySet()) {
-      double t = finalScores.get(term);
-      finalScores.put(term, t / normalizer);
-    }
-
-    return finalScores;
-  }
-
-  public Map<String, Double[]> getQTFS(String field, List<String> queryTerms,
-      List<SearchResult> results) throws IOException {
-    Map<String, Double[]> scoreQuery = new HashMap<String, Double[]>();
-
-    for (String t : queryTerms) {
-      for (int i = 0; i < 10; i++) {
-
-        int dnum = results.get(i).getDocid();
-        Terms vector = this.index.getTermVector(dnum, field);
-        TermsEnum te = vector.iterator();
-        BytesRef term;
-
-        Double[] scoreList = null;
-        while ((term = te.next()) != null && t.equals(term.utf8ToString())) {
-          String termstr = term.utf8ToString();
-          double freq = te.totalTermFreq();
-
-          if ((Double) freq == null)
-            freq = 0.0;
-
-          scoreList = scoreQuery.get(termstr);
-
-          if (scoreList == null)
-            scoreList = new Double[10];
-
-          scoreList[i] = (double) freq;
-
-          scoreQuery.put(termstr, scoreList);
+            temp *= (tfs.get(t) + 1000 * (tfcs.get(t) / cl)) / (1000 + dl);
 
         }
-      }
+
+        return temp;
     }
-    return scoreQuery;
-  }
 
-  public List<SearchResult> estimateQueryModelRM1(String field,
-      List<String> terms, double mu1, double mu2, int numfbdocs, int numfbterms)
-      throws IOException {
+    public Map<String, Double> getTFS(String field, List<SearchResult> results,
+                                      double mu2, double mu1, int numfbdocs) throws IOException {
 
-    List<SearchResult> results = this.search(field, terms, mu2, numfbdocs);
+        Terms vector = null;
+
+        Map<String, Double> PTCorpus = new HashMap<String, Double>();
+        Map<String, Double[]> scoreFB = new HashMap<String, Double[]>();
+        Map<String, Double> vocabulary = new HashMap<String, Double>();
+        double doclen[] = new double[numfbdocs];
+        // System.out.println("Results size : " + results.size());
+        for (int i = 0; i < Math.min(numfbdocs, results.size()); i++) {
+
+            int dnum = results.get(i).getDocid();
+            vector = this.index.getTermVector(dnum, field); // Read the document's
+            // term vector.
+
+            TermsEnum te = vector.iterator();
+
+            BytesRef term;
+            Double[] scoreList = null;
+            while ((term = te.next()) != null) {
+                if (this.stopwords.contains(term.utf8ToString()) != true) {
+                    String termstr = term.utf8ToString(); // Get the text string of the
+                    // term.
+                    double freq = te.totalTermFreq(); // Get the frequency of the term in
+                    // the document.
+                    if ((Double) freq == null)
+                        freq = 0.0;
+
+                    vocabulary.put(termstr, vocabulary.getOrDefault(termstr, 0.0) + freq);
+                    doclen[i] += freq;
+                    scoreList = scoreFB.get(termstr);
+
+                    if (scoreList == null)
+                        scoreList = new Double[numfbdocs];
+
+                    scoreList[i] = (double) freq;
+
+                    scoreFB.put(termstr, scoreList);
+                }
+            }
+        }
+
+        Map<String, Double> PtCorpus = new HashMap<String, Double>();
+
+        Fields fields = MultiFields.getFields(this.index);
+
+        Terms totalWords = fields.terms("content");
+
+        long corpusSize = totalWords.getSumTotalTermFreq();
+
+        for (String t : scoreFB.keySet()) {
+            double totaltermfreq = this.index.totalTermFreq(new Term("content", t));
+            double temp = totaltermfreq / corpusSize;
+            PtCorpus.put(t, mu2 * temp);
+
+        }
+
+        Map<String, Double> finalScores = new HashMap<String, Double>();
+        for (String t1 : scoreFB.keySet()) {
+            double temp = 0.0;
+            double res = 0.0;
+            Double scoreArr[] = scoreFB.get(t1);
+            for (int i = 0; i < Math.min(scoreArr.length, results.size()); i++) {
+                if (scoreArr[i] != null)
+                    temp = (scoreArr[i] + PtCorpus.get(t1));
+                else
+                    temp = (PtCorpus.get(t1));
+
+                temp /= (doclen[i] + mu2);
+
+                res += temp * results.get(i).getScore();
+
+            }
+            finalScores.put(t1, res);
+        }
+
+        double normalizer = 0.0;
+
+        for (String term : finalScores.keySet())
+            normalizer += finalScores.get(term);
+
+        for (String term : finalScores.keySet()) {
+            double t = finalScores.get(term);
+            finalScores.put(term, t / normalizer);
+        }
+
+        return finalScores;
+    }
+
+    public Map<String, Double[]> getQTFS(String field, List<String> queryTerms,
+                                         List<SearchResult> results) throws IOException {
+        Map<String, Double[]> scoreQuery = new HashMap<String, Double[]>();
+
+        for (String t : queryTerms) {
+            for (int i = 0; i < 10; i++) {
+
+                int dnum = results.get(i).getDocid();
+                Terms vector = this.index.getTermVector(dnum, field);
+                TermsEnum te = vector.iterator();
+                BytesRef term;
+
+                Double[] scoreList = null;
+                while ((term = te.next()) != null && t.equals(term.utf8ToString())) {
+                    String termstr = term.utf8ToString();
+                    double freq = te.totalTermFreq();
+
+                    if ((Double) freq == null)
+                        freq = 0.0;
+
+                    scoreList = scoreQuery.get(termstr);
+
+                    if (scoreList == null)
+                        scoreList = new Double[10];
+
+                    scoreList[i] = (double) freq;
+
+                    scoreQuery.put(termstr, scoreList);
+
+                }
+            }
+        }
+        return scoreQuery;
+    }
+
+    public List<SearchResult> estimateQueryModelRM1(String field,
+                                                    List<String> terms, double mu1, double mu2, int numfbdocs, int numfbterms)
+            throws IOException {
+
+        List<SearchResult> results = this.search(field, terms, mu2, numfbdocs);
 
 
-    // Map<String, Double> scores =this.getTFS(field, results, mu2, 1000.0,
-    // numfbdocs);
+        // Map<String, Double> scores =this.getTFS(field, results, mu2, 1000.0,
+        // numfbdocs);
 
-    return results;
+        return results;
 
-  }
+    }
 
-  static <K, V extends Comparable<? super V>> List<Entry<K, V>> mapSortByValues(
-      Map<K, V> map) {
+    static <K, V extends Comparable<? super V>> List<Entry<K, V>> mapSortByValues(
+            Map<K, V> map) {
 
-    List<Entry<K, V>> sortedEntries =
-        new ArrayList<Entry<K, V>>(map.entrySet());
+        List<Entry<K, V>> sortedEntries =
+                new ArrayList<Entry<K, V>>(map.entrySet());
 
-    Collections.sort(sortedEntries, new Comparator<Entry<K, V>>() {
-      @Override
-      public int compare(Entry<K, V> e1, Entry<K, V> e2) {
-        return e2.getValue().compareTo(e1.getValue());
-      }
-    });
+        Collections.sort(sortedEntries, new Comparator<Entry<K, V>>() {
+            @Override
+            public int compare(Entry<K, V> e1, Entry<K, V> e2) {
+                return e2.getValue().compareTo(e1.getValue());
+            }
+        });
 
-    return sortedEntries;
-  }
+        return sortedEntries;
+    }
 
 }
