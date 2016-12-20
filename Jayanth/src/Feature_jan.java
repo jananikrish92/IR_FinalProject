@@ -246,13 +246,9 @@ public class Feature_jan {
       }
       else
         score = Math.log((double) score_of_n_qterms / qterms.size());
-      // System.out.println(expTerm + ":" + score);
+       //System.out.println(expTerm + ":" + score);
       feature4.put(expTerm, score);
     }
-    // System.out.println(score_of_n_qterms);
-
-
-    //      System.out.println(term + ":" + score);
     return feature4;
   }
 
@@ -751,7 +747,7 @@ public class Feature_jan {
       expTermDocSet.retainAll(commonDocId);// list of docid for I to pass I=1
       //  System.out.println("Score for "+expTerm+" : "+Math.log(expTermDocSet.size()+0.5));
         double score=Math.log(expTermDocSet.size()+0.5);
-        //System.out.println(expTerm+":"+score);
+        //lSystem.out.println(expTerm+":"+score);
       feature10Map.put(expTerm,score);
     }
     return feature10Map;

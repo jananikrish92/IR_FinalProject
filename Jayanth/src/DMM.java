@@ -17,7 +17,7 @@ import java.util.*;
 
         public Map<String, Double> estimateDMM(String field, List<String> terms,
                                                double lambda, int numfbdocs, int numfbterms) throws IOException {
-            LuceneQLSearcher searcher = new LuceneQLSearcher("/Users/jananikrishna/Documents/IRFinalProject/index_robust04");
+            LuceneQLSearcher searcher = new LuceneQLSearcher("/Users/jananikrishna/Documents/IRFinalProject/index_trec123");
             List<SearchResult> results = searcher.search(field, terms, 0, numfbdocs);
             Set<String> voc = new HashSet<>();
             for (SearchResult result : results) {
@@ -147,6 +147,7 @@ import java.util.*;
                         + (1.0 - 0.5) * DMMscore.getOrDefault(w, 0.0));
             }
 
+            finalres=Features.getCorrectedExpandedTerms(finalres,results,searcher);
             finalres = SMM.sortByValue(finalres);
             // System.out.println(numfbterms);
 

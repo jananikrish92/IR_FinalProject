@@ -1,13 +1,7 @@
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.index.IndexReader;
@@ -29,8 +23,6 @@ public class Features {
     double total_fbtermfreq = 0.0;
     Map<String, Double> dist = new HashMap<String, Double>();
     List<Integer> fbdocs = new ArrayList<Integer>();
-    FileDocLengthReader flen =
-        new FileDocLengthReader(new File("C:\\Users\\jannu bhai\\IdeaProjects\\IRProjectVersion2\\index_trec123"), "content");
 
     for (SearchResult sr : fbresults) {
       int docid = sr.getDocid();
@@ -201,19 +193,20 @@ public class Features {
 
   public static void main(String[] args) throws IOException {
 
-    String pathIndex = "/Users/jananikrishna/Documents/IRFinalProject/index_robust04";
+    String pathIndex = "/Users/jananikrishna/Documents/IRFinalProject/index_trec123";
     Analyzer analyzer = LuceneUtils.getAnalyzer(LuceneUtils.Stemming.Krovetz);
 
-    String pathQueries = "/Users/jananikrishna/Documents/IRFinalProject/queries_robust04"; // change it to your
+    String pathQueries = "/Users/jananikrishna/Documents/IRFinalProject/queries_trec1-3"; // change it to your
     // query file path
-    String pathQrels = "/Users/jananikrishna/Documents/IRFinalProject/qrels_robust04"; // change it to your
+    String pathQrels = "/Users/jananikrishna/Documents/IRFinalProject/qrels_trec1-3"; // change it to your
     // qrels file path
     String pathStopwords = "/Users/jananikrishna/Documents/IRFinalProject/stopwords_inquery";
     String field_docno = "docno";
     String field_search = "content";
       //String indexName = "index_trec123";
-     String outputFolder = "/Users/jananikrishna/Documents/IRFinalProject/indexRobustOP/BaseLineSMM"; //change based on setting
+     String outputFolder = "/Users/jananikrishna/Documents/IRFinalProject/indexTrecOP/BaseLineDMM"; //change based on setting
     // RM searcher = new RM(pathIndex);
+
     LuceneQLSearcher searcher = new LuceneQLSearcher(pathIndex);
     searcher.setStopwords(pathStopwords);
     System.out.println("entering main");
@@ -223,6 +216,7 @@ public class Features {
     int top = 1000;
     double mu = 1000;
     int numfbdocs = 20;
+      System.out.println(searcher.index.numDocs());
     for (String qid : queries.keySet()) {
 
       String query = queries.get(qid);// qid);
@@ -230,9 +224,12 @@ public class Features {
     //  System.out.println(qid);
         File file = new File(outputFolder+"/"+qid);
         PrintWriter pw = new PrintWriter(file);
-      RM rm = new RM(pathIndex);
-      Map<String, Double> scoresRM1 = searcher.estimateQueryModelRM1(
+
+             RM rm = new RM(pathIndex);
+
+          Map<String, Double> scoresRM1 = searcher.estimateQueryModelRM1(
           field_search, terms, 1500.0, 0.0, 20, 80);
+
         Map<String, Double> scoreRM3 = searcher.estimateQueryModelRM3(terms, scoresRM1 , 0.5);
 
         SMM smm = new SMM();
@@ -244,7 +241,8 @@ public class Features {
         // System.out.println(qid);
       List<SearchResult> qlRes = rm.search("content", terms, 1500.0, 1000);
       //System.out.println(qid);
-      List<String> expansionTermsList = getCorrectedExpandedTerms(scoresSMM, qlRes, searcher);
+        //8*********************************************8
+      List<String> expansionTermsList = new ArrayList<>(scoresDMM.keySet());
       System.out.println(expansionTermsList.size());
         Feature_jan feature=new Feature_jan();
       SearchResult.dumpDocno(searcher.index, "docno", qlRes);
@@ -255,18 +253,20 @@ public class Features {
       System.out.print(feature2Map.size());
         Map<String,Double> feature3Map=scalingFeatures(feature.feature3(searcher.index,expansionTermsList,qlRes,terms,20));
       System.out.print(feature3Map.size());
-       Map<String,Double> feature4Map=scalingFeatures(feature.feature4(expansionTermsList,terms,searcher));
-      System.out.print(feature4Map.size());
+
         Map<String,Double> feature5Map=scalingFeatures(feature.feature5(searcher.index,expansionTermsList,qlRes,terms));
       System.out.print(feature5Map.size());
         Map<String,Double> feature7Map=scalingFeatures(feature.feature7(searcher.index,expansionTermsList,terms,qlRes));
       System.out.print(feature7Map.size());
-        Map<String,Double> feature8Map=scalingFeatures(feature.feature8(expansionTermsList,terms,searcher));
-      System.out.print(feature8Map.size());
+
         Map<String,Double> feature9Map=scalingFeatures(feature.feature9(searcher.index,qlRes,terms,expansionTermsList));
       System.out.print(feature9Map.size());
         Map<String,Double> feature10Map=scalingFeatures(feature.feature10(searcher,terms,expansionTermsList));
       System.out.print(feature10Map.size());
+        Map<String,Double> feature4Map=scalingFeatures(feature.feature4(expansionTermsList,terms,searcher));
+        System.out.print(feature4Map.size());
+        Map<String,Double> feature8Map=scalingFeatures(feature.feature8(expansionTermsList,terms,searcher));
+        System.out.print(feature8Map.size());
      /*   for(Map.Entry<String,Double> entry:feature3Map.entrySet())
         {
             System.out.println(entry.getKey()+":"+entry.getValue());
@@ -426,10 +426,10 @@ public class Features {
 
   }
 
-  public static List<String> getCorrectedExpandedTerms(
+  public static Map<String,Double> getCorrectedExpandedTerms(
           Map<String, Double> ql_map, List<SearchResult> ser,
           LuceneQLSearcher searcher) throws IOException {
-    List<String> CorrectedExpandedTerms = new ArrayList<>();
+    Map<String, Double> CorrectedExpandedTerms = new TreeMap<>();
     for (String expTerms : ql_map.keySet()) {
       int count = 0;
       for (int i = 0; i < Math.min(20,ser.size()); i++) {
@@ -450,7 +450,7 @@ public class Features {
         }
       }
       if (count >= 3) {
-        CorrectedExpandedTerms.add(expTerms);
+        CorrectedExpandedTerms.put(expTerms,ql_map.get(expTerms));
       }
     }
 

@@ -88,6 +88,8 @@ public class LuceneQLSearcher extends AbstractQLSearcher {
         collector.put(w, collector.getOrDefault(w, 0.0) + pw * dw);
       }
     }
+    collector = Features.getCorrectedExpandedTerms(collector,results,this);
+    collector = SMM.sortByValue(collector);
     return Utils.getTop(Utils.norm(collector), numfbterms);
   }
 
@@ -111,6 +113,9 @@ public class LuceneQLSearcher extends AbstractQLSearcher {
       rm3.put(w, weight_org * mle.getOrDefault(w, 0.0)
           + (1 - weight_org) * rm1.getOrDefault(w, 0.0));
     }
+    List<SearchResult> results = search("content",terms,1500,20);
+    rm3 = Features.getCorrectedExpandedTerms(rm3,results,this);
+    rm3 = SMM.sortByValue(rm3);
 
     return rm3;
   }
