@@ -5,36 +5,43 @@
 
 import java.io.BufferedReader;
 import java.io.FileReader;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedList;
 import libsvm.svm;
 import libsvm.svm_model;
 import libsvm.svm_node;
 import libsvm.svm_parameter;
 import libsvm.svm_problem;
+import java.io.File;
+import java.util.List;
 
-
-    public class SVM_train_test
+public class SVM_train_test
     {
 
         //class to train the model
-        public svm_model svmTrain(String Filename1, int record_size, int feature_count )
-        {
+        public svm_model svmTrain(File[] trainingFiles, String folder, int record_size, int feature_count, String modelFilename, String modelFolder ) throws IOException {
 
             //read the data from file and put it in the train module
+            svm_model model = null;
+           // System.out.println("File : " + Filename1);
 
             LinkedList<String> Dataset = new LinkedList<String>();//stores the lines from the given file
-
-            try
+        for(File f : trainingFiles)
+            {    try
 
             {
+                if(f.getName().equals(".DS_Store"))
+                    continue;
 
-                //int i=0;
-
+                String Filename1 = folder+"/"+f.getName();
+                System.out.println("File : " + Filename1);
                 FileReader fr1 = new FileReader(Filename1);
 
                 BufferedReader br1 = new BufferedReader(fr1);
 
-                for(String line1 = br1.readLine();line1!=null;line1=br1.readLine())
+                for (String line1 = br1.readLine(); line1 != null; line1 = br1.readLine())
 
                 {
 
@@ -44,31 +51,28 @@ import libsvm.svm_problem;
 
                 br1.close();
 
-            }
-
-            catch(Exception e)
+            } catch (Exception e)
 
             {
 
                 e.printStackTrace();
 
             }
+        }
+            System.out.println("Dataset Size " + Dataset.size());
 
-            System.out.println("Dataset Size "+Dataset.size());
-
-            //record_size = Dataset.size();
+            record_size = Dataset.size();
 
             double node_values[][] = new double[record_size][]; //jagged array used to store values
 
             int node_indexes[][] = new int[record_size][];//jagged array used to store node indexes
 
-            double node_class_labels [] = new double[record_size];//store class lavels
-
+            double node_class_labels[] = new double[record_size];//store class lavels
 
 
             //Now store data values
 
-            for(int i=0;i<Dataset.size();i++)
+            for (int i = 0; i < Dataset.size(); i++)
 
             {
 
@@ -76,25 +80,23 @@ import libsvm.svm_problem;
 
                 {
 
-                    String [] data1 = Dataset.get(i).split("\\s");
+                    String[] data1 = Dataset.get(i).split("\\s");
 
                     node_class_labels[i] = Integer.parseInt(data1[0].trim());
 
-
-
+                    System.out.println(Integer.parseInt(data1[0].trim()));
                     LinkedList<Integer> list_indx = new LinkedList<Integer>();
 
                     LinkedList<Double> list_val = new LinkedList<Double>();
 
 
-
-                    for(int k=0;k<data1.length;k++)
+                    for (int k = 0; k < data1.length; k++)
 
                     {
 
-                        String [] tmp_data = data1[k].trim().split(":");
+                        String[] tmp_data = data1[k].trim().split(":");
 
-                        if(tmp_data.length==2)
+                        if (tmp_data.length == 2)
 
                         {
 
@@ -102,13 +104,13 @@ import libsvm.svm_problem;
 
                             list_val.add(Double.parseDouble(tmp_data[1].trim()));
 
-                            System.out.println("Index  "+tmp_data[0]+" Value "+tmp_data[1]);
+                            System.out.println("Index  " + tmp_data[0] + " Value " + tmp_data[1]);
 
                         }
 
                     }
 
-                    if(list_val.size()>0)
+                    if (list_val.size() > 0)
 
                     {
 
@@ -118,7 +120,7 @@ import libsvm.svm_problem;
 
                     }
 
-                    for(int m=0;m<list_val.size();m++)
+                    for (int m = 0; m < list_val.size(); m++)
 
                     {
 
@@ -126,13 +128,11 @@ import libsvm.svm_problem;
 
                         node_values[i][m] = list_val.get(m);
 
-                        System.out.println("List Index value "+list_indx.get(m)+"  <=> List values "+list_val.get(m)+"  list size "+list_indx.size());
+                        System.out.println("List Index value " + list_indx.get(m) + "  <=> List values " + list_val.get(m) + "  list size " + list_indx.size());
 
                     }
 
-                }
-
-                catch(Exception e)
+                } catch (Exception e)
 
                 {
 
@@ -141,7 +141,6 @@ import libsvm.svm_problem;
                 }
 
             }
-
 
 
             svm_problem prob = new svm_problem();
@@ -163,7 +162,7 @@ import libsvm.svm_problem;
 
                 double[] values = node_values[i];
 
-                int [] indexes = node_indexes[i];
+                int[] indexes = node_indexes[i];
                 //System.out.println("Vals "+node_values[i]);
                 prob.x[i] = new svm_node[values.length];
 
@@ -202,23 +201,27 @@ import libsvm.svm_problem;
 
             param.eps = 0.001;
 
+            double[] target = new double[record_size];
+            svm.svm_cross_validation(prob, param, 5, target);
 
-            svm_model model = svm.svm_train(prob, param);
+            model = svm.svm_train(prob, param);
 
+
+            svm.svm_save_model(modelFolder+"/"+modelFilename, model);
 
             return model;
 
         }
 
         //write code to test all instances from given file
-        public void evaluate_all_instances(String Filename1, svm_model model1, int record_size)
+        public double evaluate_all_instances(String Filename1, String folder, String modelFilename, int record_size) throws IOException
         {
 
             //read data from file
 
             //read the data from file and put it in the train module
 
-
+            svm_model model1 = svm.svm_load_model(modelFilename);
 
             LinkedList<String> Dataset = new LinkedList<String>();//stores the lines from the given file
 
@@ -228,7 +231,7 @@ import libsvm.svm_problem;
 
                 //int i=0;
 
-                FileReader fr1 = new FileReader(Filename1);
+                FileReader fr1 = new FileReader(folder+"/"+Filename1);
 
                 BufferedReader br1 = new BufferedReader(fr1);
 
@@ -263,7 +266,7 @@ import libsvm.svm_problem;
 
 
             //Now store data values
-
+            List<Double> labels = new ArrayList<>();
             for(int i=0;i<Dataset.size();i++)
 
             {
@@ -299,6 +302,8 @@ import libsvm.svm_problem;
                             System.out.println("Index  "+tmp_data[0]+" Value "+tmp_data[1]);
 
                         }
+                        else
+                            labels.add(Double.parseDouble(tmp_data[0].trim()));
 
                     }
 
@@ -339,7 +344,7 @@ import libsvm.svm_problem;
 
 
             //now identify the class labels for test dataset
-
+            double accuracy = 0.0;
             for(int i=0;i<record_size;i++)
 
             {
@@ -348,13 +353,19 @@ import libsvm.svm_problem;
 
                 double tmp_values[] = node_values[i];
 
-                evaluate_single_instance(tmp_indexes,tmp_values, model1);
+                double prediction = evaluate_single_instance(tmp_indexes,tmp_values, model1);
+                if(labels.get(i) == prediction)
+                    accuracy++;
 
             }
 
+            accuracy /= record_size;
+
+            return accuracy;
+
         }
         //write the code to test single feature each time by using SVM
-        public void evaluate_single_instance(int [] indexes, double[] values, svm_model model1)
+        public double evaluate_single_instance(int [] indexes, double[] values, svm_model model1)
         {
 
             svm_node[] nodes = new svm_node[values.length];
@@ -395,22 +406,41 @@ import libsvm.svm_problem;
 
             System.out.println(" Prediction:" + v );
 
+            return v;
+
         }
 
-        public static void main(String[] args)
+        public static void create_model(File[] trainingfiles, String folder, String modelFile, String modelFolder) throws IOException{
+
+            int numofTrainFiles = trainingfiles.length -10;
+            SVM_train_test t = new SVM_train_test();
+            File[] trainFiles = Arrays.copyOfRange(trainingfiles, 0, numofTrainFiles);
+            //for(int i = 0; i < numofTrainFiles; i++){
+               //if(!trainingfiles[i].getName().equals(".DS_Store"))
+                t.svmTrain(trainFiles, folder,  80, 9, modelFile, modelFolder);
+            //}
+
+           // return null;
+        }
+
+
+        public static void main(String[] args) throws IOException
         {
 
             SVM_train_test t123 = new SVM_train_test();
+            File dir = new File("indexRobustOP/indexRobustOP/BaseLineRM1");
+            File[] files = dir.listFiles();
 
+            Arrays.sort(files);
 
-            svm_model model2 = t123.svmTrain("indexRobustOP/indexRobustOP/BaseLineSMM/301", 65, 9);
-
-
-
-            t123.evaluate_all_instances("indexRobustOP/indexRobustOP/BaseLineSMM/302", model2, 65);
-
-
-            System.out.println("Operation complete");
+            //create_model(files, "indexWtgOP/indexWtgOP/BaseLineRM3", "RM3.model", "indexWtgOP_models/BaseLineRM3");
+            File[] testFiles = Arrays.copyOfRange(files, files.length-10, files.length);
+            double accuracy = 0.0;
+            for(int i = 0; i < testFiles.length; i++)
+                accuracy += t123.evaluate_all_instances(testFiles[i].getName(), "indexRobustOP/indexRobustOP/BaseLineRM1",  "indexRobustOP_models/BaseLineRM1/RM1.model", 80);
+                //testFiles[i].getName()
+            accuracy /= testFiles.length;
+            System.out.println("Average Accuracy : "+accuracy+"\nOperation complete");
 
         }
 
